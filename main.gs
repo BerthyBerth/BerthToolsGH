@@ -1,3 +1,13 @@
+IncludeLib = function(lib_name)
+    _lib = include_lib("/lib/" + lib_name)
+    if not _lib then _lib = include_lib(current_path + lib_name)
+    if not _lib then exit("Library " + lib_name + " not found. Make sure to put it in /lib with this exact name.")
+
+    return _lib
+end function
+metax = IncludeLib("metaxploit.so")
+crypto = IncludeLib("crypto.so")
+
 // Input IP
 if params.len < 1 then exit("myprogram [ip/domain]")
     if params[0].split(".").len == 3 then
@@ -17,10 +27,9 @@ for i in router.used_ports
     _port.number = i.port_number
     _port.service = _info[0]
     _port.version = _info[1]
+    _port.metalib = metax.net_use(ip, _port.number).dump_lib
     ports.push(_port)
 end for
-
-print(ports)
 
 // Formating Visual Display
 nb_max_len = 6
@@ -47,14 +56,6 @@ for i in ports
     end if
 end for
 
-IncludeLib = function(lib_name)
-    _lib = include_lib("/lib/" + lib_name)
-    if not _lib then _lib = include_lib(current_path + lib_name)
-    if not _lib then exit("Library " + lib_name + " not found. Make sure to put it in /lib with this exact name.")
-
-    return _lib
-end function
-
 MainMenu = function()
 
     clear_screen()
@@ -68,14 +69,17 @@ MainMenu = function()
     print(CreateBoard())
 
     print("")
-    print("[1] Scan specific port and save on computer vulnerabilities")
-    print("[2] Exit")
+    print("[1] Scan & save specific port vulns")
+    print("[2] Use personnal computer data")
+    print("[3] Exit")
 
     choice = user_input("Choice : ")
 
     if choice == "1" then
         ScanSpecificPortMenu()
     else if choice == "2" then
+        UsePersonnalDataMenu()
+    else if choice == "3" then
         exit("Bye bye")
     end if
 
@@ -180,13 +184,59 @@ WriteVuln = function(vuln, metalib, data)
     computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory).set_content(data)
     end function
 
+UsePersonnalDataMenu = function()
+    print(CreateBoard())
+
+    port_index = user_input("\nTarget Port : ").to_int - 1
+    file = get_shell.host_computer.File("/BerthTools/libs/" + ports[port_index].metalib.lib_name + "/" + ports[port_index].version)
+    ChooseAddresses(ip, ports[port_index])
+    wait(30)
+    if (true) then
+        print("Exists")
+    else
+        print("Not exists")
+    end if
+end function
+
 ScanSpecificPortMenu = function()
     clear_screen()
     
     print(CreateBoard())
 
     index = user_input("\nIndex : ").to_int - 1
-    AnalyseLib(index, router)
+    ShowVulns(ip, ports[index])
+end function
+
+ChooseAddresses = function(ip, port)
+    print("<b>VULNERABILITIES</b>")
+
+    main_folder = get_shell.host_computer.File("/BerthTools/libs/" + port.metalib.lib_name + "/" + port.version)
+    addresses = main_folder.get_files
+    for i in range(0, addresses.len - 1)
+        print("<b>[" + (i+1) + "]</b> " + addresses[i].name)
+    end for
+
+    choice = user_input("\nChoice : ").to_int - 1
+    AddressVulnsMenu(addresses[choice], ip, port)
+end function
+
+AddressVulnsMenu = function(address_file, ip, port)
+    clear_screen()
+
+    print(CreateBoard())
+    print()
+
+    parsed_infos = ParseVulns(address_file.get_content, address_file.name) // Vuln Object Returns (vuln.memory, vuln.value, vuln.requirements)
+    for i in range(0, parsed_infos.len - 1)
+        print("<b>[" + (i+1) + "] " + parsed_infos[i].value + "</b>")
+        for u in parsed_infos[i].requirements
+            print(" * " + u)
+        end for
+    print("")
+    end for
+    choice = user_input("Choice : ").to_int - 1
+
+    ExploitVuln(parsed_infos[choice].value, address_file.name, ip, port)
 end function
 
 AnalyseLib = function(index, router)
@@ -205,8 +255,11 @@ AnalyseLib = function(index, router)
     user_input("\nENTER")
 end function
 
-metax = IncludeLib("metaxploit.so")
-crypto = IncludeLib("crypto.so")
+ExploitVuln = function(value, address, ip, port)
+    exploit = port.metalib.overflow(address, value, "1234")
+    print(exploit)
+    if typeof(exploit) == "shell" then exploit.start_terminal
+end function
 
 while true
     MainMenu()
