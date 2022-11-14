@@ -27,7 +27,8 @@ for i in router.used_ports
     _port.number = i.port_number
     _port.service = _info[0]
     _port.version = _info[1]
-    _port.metalib = metax.net_use(ip, _port.number).dump_lib
+    _port.state = not i.is_closed
+    if not i.is_closed() then _port.metalib = metax.net_use(ip, _port.number).dump_lib
     ports.push(_port)
 end for
 
@@ -86,7 +87,8 @@ MainMenu = function()
 end function
 
 CreateBoard = function()
-    board = "| INDEX | NUMBER"
+    board = "Kernel Version : " + router.kernel_version
+    board = board + "\n\n| INDEX | NUMBER"
     for i in range(0, nb_max_len - "number".len)
         board = board + " "
     end for
@@ -98,7 +100,7 @@ CreateBoard = function()
     for i in range(0, version_max_len - "version".len)
         board = board + " "
     end for
-    board = board + "|"
+    board = board + "| STATE |"
 
     for i in range(0, ports.len - 1)
 
@@ -119,10 +121,19 @@ CreateBoard = function()
             line = line + " "
         end for
 
+        // OPEN
+        // CLOSE
+        print("DEBUG : " + _port.state)
+        if _port.state then // If open
+            line = line + " | Open "
+        else // If closed
+            line = line + " | Close"
+        end if
+
         board = board + line + " |"
         return board
     end for
-end function
+end function // Returns Board with Kernel Version and Ports Infos
 
 ParseVulns = function(data, memory)
 
@@ -172,7 +183,7 @@ ParseVulns = function(data, memory)
     end for
 
     return Vulns
-end function
+end function // [VulnObject{vuln.memory, vuln.value, vuln.requirements[]}]
 
 WriteVuln = function(vuln, metalib, data)
     computer = get_shell.host_computer
@@ -182,9 +193,10 @@ WriteVuln = function(vuln, metalib, data)
     if not computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version) then computer.create_folder("/BerthTools/libs/" + metalib.lib_name, metalib.version)
     if not computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory) then computer.touch("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version, vuln.memory)
     computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory).set_content(data)
-    end function
+end function
 
 UsePersonnalDataMenu = function()
+    clear_screen()
     print(CreateBoard())
 
     port_index = user_input("\nTarget Port : ").to_int - 1
@@ -204,7 +216,7 @@ ScanSpecificPortMenu = function()
     print(CreateBoard())
 
     index = user_input("\nIndex : ").to_int - 1
-    ShowVulns(ip, ports[index])
+    WriteVuln(ip, ports[index])
 end function
 
 ChooseAddresses = function(ip, port)
