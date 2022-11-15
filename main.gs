@@ -202,7 +202,7 @@ CreateIfNotExist = function(type, path)
     computer = get_shell.host_computer
     file = computer.File(path)
     if file then
-        print("Exists : " + path)
+        // print("Exists : " + path)
     else
         parsed_path = path.split("/")
         file_name = parsed_path[-1]
@@ -216,7 +216,7 @@ CreateIfNotExist = function(type, path)
             computer.create_folder(file_path, file_name)
         end if
 
-        print("Created : " + file_path + "/" + file_name)
+        // print("Created : " + file_path + "/" + file_name)
     end if
 end function
 
@@ -280,11 +280,8 @@ AnalyseLib = function(index, router)
     net_session = metax.net_use(ip, ports[index].number)
     metalib = net_session.dump_lib
 
-    print("BEFORE FOR")
     addresses = metax.scan(metalib)
     for i in addresses
-        print(i)
-        wait(2)
         data = metax.scan_address(metalib, i)
         parsed_data = ParseVulns(data, i)
         for u in parsed_data
