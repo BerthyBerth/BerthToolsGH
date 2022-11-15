@@ -187,12 +187,37 @@ end function // [VulnObject{vuln.memory, vuln.value, vuln.requirements[]}]
 
 WriteVuln = function(vuln, metalib, data)
     computer = get_shell.host_computer
-    if not computer.File("/BerthTools") then computer.create_folder("/", "BerthTools")
-    if not computer.File("/BerthTools/libs") then computer.create_folder("/BerthTools/", "libs")
-    if not computer.File("/BerthTools/libs/" + metalib.lib_name) then computer.create_folder("/BerthTools/libs/", metalib.lib_name)
-    if not computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version) then computer.create_folder("/BerthTools/libs/" + metalib.lib_name, metalib.version)
-    if not computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory) then computer.touch("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version, vuln.memory)
-    computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory).set_content(data)
+    CreateIfNotExist("folder", "/BerthTools")
+    CreateIfNotExist("folder", "/BerthTools/libs")
+    CreateIfNotExist("folder", "/BerthTools/libs/" + metalib.lib_name)
+    CreateIfNotExist("folder", "/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version)
+    CreateIfNotExist("folder", "/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory)
+
+    CreateIfNotExist("file", "/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory + "/data")
+    CreateIfNotExist("file", "/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory + "/infos")
+    computer.File("/BerthTools/libs/" + metalib.lib_name + "/" + metalib.version + "/" + vuln.memory + "/data").set_content(data)
+end function
+
+CreateIfNotExist = function(type, path)
+    computer = get_shell.host_computer
+    file = computer.File(path)
+    if file then
+        print("Exists : " + path)
+    else
+        parsed_path = path.split("/")
+        file_name = parsed_path[-1]
+        parent_path = parsed_path
+        parent_path.remove(-1)
+        file_path = parent_path.join("/")
+
+        if type == "file" then
+            computer.touch(file_path, file_name)
+        else
+            computer.create_folder(file_path, file_name)
+        end if
+
+        print("Created : " + file_path + "/" + file_name)
+    end if
 end function
 
 UsePersonnalDataMenu = function()
@@ -216,7 +241,7 @@ ScanSpecificPortMenu = function()
     print(CreateBoard())
 
     index = user_input("\nIndex : ").to_int - 1
-    WriteVuln(ip, ports[index])
+    AnalyseLib(index, router)
 end function
 
 ChooseAddresses = function(ip, port)
@@ -255,8 +280,11 @@ AnalyseLib = function(index, router)
     net_session = metax.net_use(ip, ports[index].number)
     metalib = net_session.dump_lib
 
+    print("BEFORE FOR")
     addresses = metax.scan(metalib)
     for i in addresses
+        print(i)
+        wait(2)
         data = metax.scan_address(metalib, i)
         parsed_data = ParseVulns(data, i)
         for u in parsed_data
